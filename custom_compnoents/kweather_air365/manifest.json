@@ -1,0 +1,9 @@
+{
+  "domain": "life",
+  "name": "KWeather Air364",
+  "documentation": "https://github.com/KuddLim/KWeatherAir365",
+  "requirements": [],
+  "dependencies": [],
+  "codeowners": ["@KuddLim"],
+  "version": "0.0.1"
+}
