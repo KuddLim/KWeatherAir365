@@ -10,7 +10,7 @@ import voluptuous as vol
 
 from homeassistant.core import callback
 from homeassistant.components.sensor import ENTITY_ID_FORMAT, PLATFORM_SCHEMA
-from homeassistant.const import CONF_SENSORS, CONF_NAME, CONF_TYPE, ATTR_DATE
+from homeassistant.const import CONF_SENSORS, CONF_NAME, CONF_TYPE, CONF_SCAN_INTERVAL, CONF_API_KEY
 from homeassistant.helpers.entity import Entity, async_generate_entity_id
 import homeassistant.helpers.config_validation as cv
 import homeassistant.util.dt as dt_util
@@ -25,17 +25,17 @@ _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_SENSOR_NAME = 'KWeather Air 365'
 
-CONF_SENSOR_NAME = 'sensor_name'
-CONF_INTERVAL = 'interval'
-CONF_STATION_NO = 'station_no'
+CONF_NAME = 'sensor_name'
+CONF_SCAN_INTERVAL = 'interval'
+CONF_API_KEY = 'station_no'
 
 KWEATHER_API_URL = 'https://datacenter.kweather.co.kr/api/app/iotData'
 
 
 SENSOR_SCHEMA = vol.Schema({
-    vol.Required(CONF_STATION_NO, default=''): cv.string,
-    vol.Optional(CONF_SENSOR_NAME, default=DEFAULT_SENSOR_NAME): cv.string,
-    vol.Optional(CONF_INTERVAL, default=360): cv.positive_int,
+    vol.Required(CONF_API_KEY, default=''): cv.string,
+    vol.Optional(CONF_NAME, default=DEFAULT_SENSOR_NAME): cv.string,
+    vol.Optional(CONF_SCAN_INTERVAL, default=360): cv.positive_int,
 })
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
@@ -50,7 +50,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         return False
 
     sensors = []
-    sensor = KWeatherAir365Sensor(hass, config.get(CONF_SENSOR_NAME), config.get(CONF_STATION_NO), config.get(CONF_INTERVAL))
+    sensor = KWeatherAir365Sensor(hass, config.get(CONF_NAME), config.get(CONF_API_KEY), config.get(CONF_SCAN_INTERVAL))
 
     async_track_point_in_utc_time(
             hass, sensor.point_in_time_listener, sensor.get_next_interval())
