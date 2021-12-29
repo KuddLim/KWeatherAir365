@@ -25,7 +25,7 @@ _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_SENSOR_NAME = 'KWeather Air 365'
 
-CONF_SENSOR_NAME='sensor_name'
+CONF_SENSOR_NAME = 'sensor_name'
 CONF_INTERVAL = 'interval'
 CONF_STATION_NO = 'station_no'
 
@@ -35,11 +35,11 @@ KWEATHER_API_URL = 'https://datacenter.kweather.co.kr/api/app/iotData'
 SENSOR_SCHEMA = vol.Schema({
     vol.Required(CONF_STATION_NO, default=''): cv.string,
     vol.Optional(CONF_SENSOR_NAME, default=DEFAULT_SENSOR_NAME): cv.string,
+    vol.Optional(CONF_INTERVAL, default=360): cv.positive_int,
 })
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_SENSORS): cv.schema_with_slug_keys(SENSOR_SCHEMA),
-    vol.Optional(CONF_INTERVAL, default=360): cv.positive_int,
 })
 
 
@@ -50,19 +50,8 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         return False
 
     sensors = []
-
-    for device, device_config in config[CONF_SENSORS].items():
-        name = device_config.get(CONF_SENSOR_NAME)
-        station_no = device_config.get(CONF_STATION_NO)
-        interval = device_config.get(CONF_INTERVAL)
-
-        sensor = AnniversarySensor(hass, device, name, date_str, is_lunar, anniv_type, is_mmdd)
-        async_track_point_in_utc_time(
-            hass, sensor.point_in_time_listener, sensor.get_next_interval())
-
-        sensors.append(sensor)
-
     sensor = KWeatherAir365Sensor(hass, config.get(CONF_SENSOR_NAME), config.get(CONF_STATION_NO), config.get(CONF_INTERVAL))
+
     async_track_point_in_utc_time(
             hass, sensor.point_in_time_listener, sensor.get_next_interval())
     sensors.append(sensor)
