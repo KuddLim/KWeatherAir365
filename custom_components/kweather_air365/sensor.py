@@ -32,7 +32,7 @@ KWEATHER_API_URL = 'https://datacenter.kweather.co.kr/api/app/iotData'
 SENSOR_SCHEMA = vol.Schema({
     vol.Required(CONF_NAME, default=''): cv.string,
     vol.Required(CONF_INTERVAL, default=3600): cv.positive_int,
-    vol.Requried(CONF_STATION_NO, default=''): cv.string
+    vol.Required(CONF_STATION_NO, default=''): cv.string
 })
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
