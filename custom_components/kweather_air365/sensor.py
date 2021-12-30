@@ -10,7 +10,7 @@ import voluptuous as vol
 
 from homeassistant.core import callback
 from homeassistant.components.sensor import ENTITY_ID_FORMAT, PLATFORM_SCHEMA
-from homeassistant.const import CONF_SENSORS, CONF_NAME, CONF_TYPE, CONF_SCAN_INTERVAL, CONF_API_KEY
+from homeassistant.const import CONF_SENSORS, CONF_NAME, CONF_TYPE
 from homeassistant.helpers.entity import Entity, async_generate_entity_id
 import homeassistant.helpers.config_validation as cv
 import homeassistant.util.dt as dt_util
@@ -23,25 +23,21 @@ import xml.etree.ElementTree as ET
 
 _LOGGER = logging.getLogger(__name__)
 
-DEFAULT_SENSOR_NAME = 'KWeather Air 365'
-
-CONF_NAME = 'sensor_name'
-CONF_SCAN_INTERVAL = 'interval'
-CONF_API_KEY = 'station_no'
+CONF_SENSOR_LOCATION = 'sensor_location'
+CONF_INTERVAL = 'interval'
+CONF_STATION_NO = 'station_no'
 
 KWEATHER_API_URL = 'https://datacenter.kweather.co.kr/api/app/iotData'
 
-
 SENSOR_SCHEMA = vol.Schema({
-    vol.Required(CONF_API_KEY, default=''): cv.string,
-    vol.Optional(CONF_NAME, default=DEFAULT_SENSOR_NAME): cv.string,
-    vol.Optional(CONF_SCAN_INTERVAL, default=360): cv.positive_int,
+    vol.Required(CONF_NAME, default=''): cv.string,
+    vol.Required(CONF_INTERVAL, default=3600): cv.positive_int,
+    vol.Requried(CONF_STATION_NO, default=''): cv.string
 })
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_SENSORS): cv.schema_with_slug_keys(SENSOR_SCHEMA),
 })
-
 
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     """Set up the Anniversary sensor."""
@@ -50,7 +46,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         return False
 
     sensors = []
-    sensor = KWeatherAir365Sensor(hass, config.get(CONF_NAME), config.get(CONF_API_KEY), config.get(CONF_SCAN_INTERVAL))
+    sensor = KWeatherAir365Sensor(hass, config.get(CONF_SENSOR_NAME), config.get(CONF_STATION_NO), config.get(CONF_INTERVAL))
 
     async_track_point_in_utc_time(
             hass, sensor.point_in_time_listener, sensor.get_next_interval())
