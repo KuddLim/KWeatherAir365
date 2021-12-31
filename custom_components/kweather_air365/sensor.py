@@ -32,7 +32,8 @@ KWEATHER_API_URL = 'https://datacenter.kweather.co.kr/api/app/iotData'
 SENSOR_SCHEMA = vol.Schema({
     vol.Required(CONF_NAME, default=''): cv.string,
     vol.Required(CONF_INTERVAL, default=3600): cv.positive_int,
-    vol.Required(CONF_STATION_NO, default=''): cv.string
+    vol.Required(CONF_STATION_NO, default=''): cv.string,
+    vol.Optional(CONF_SENSOR_LOCATION, default=''): cv.string
 })
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
@@ -46,21 +47,30 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         return False
 
     sensors = []
-    sensor = KWeatherAir365Sensor(hass, config.get(CONF_SENSOR_NAME), config.get(CONF_STATION_NO), config.get(CONF_INTERVAL))
 
-    async_track_point_in_utc_time(
+    for device, device_config in config[CONF_SENSORS].items():
+        location = device_config.get(CONF_SENSOR_LOCATION)
+        station_no = device_config.get(CONF_STATION_NO)
+        interval = device_config.get(CONF_INTERVAL)
+        sensor = KWeatherAir365Sensor(hass, location, station_no, interval)
+        async_track_point_in_utc_time(
             hass, sensor.point_in_time_listener, sensor.get_next_interval())
-    sensors.append(sensor)
+        sensors.append(sensor)
 
     async_add_entities(sensors, True)
 
 class KWeatherAir365Sensor(Entity):
     def __init__(self, hass, name, station_no, interval):
         self.hass = hass
+        self._state = ''
         self._name = name
         self._station_no = station_no
         self._interval = interval
-        self._update_internal_state(dt_util.utcnow())
+        self._attributes = { }
+
+        _LOGGER.info('interval passed to ctor : {0}'.format(self._interval))
+
+        self._update_internal_state()
 
     @property
     def name(self):
@@ -79,11 +89,11 @@ class KWeatherAir365Sensor(Entity):
         return self._attributes
 
     def _update_internal_state(self):
-        self._attribute = {
-            'type': self._type,
-        }
+        self._attributes = { }
 
         params = { 'station_no' : self._station_no }
+        self._attributes = {"pm25": 10}
+        '''
         x = requests.post(KWEATHER_API_URL, data = params)
         if (x.status_code == 200):
             try:
@@ -92,6 +102,7 @@ class KWeatherAir365Sensor(Entity):
                     self._attribute[child.tag] = child.text
             except:
                 pass
+        '''
 
     def get_next_interval(self, now=None):
         """Compute next time an update should occur."""
@@ -106,7 +117,7 @@ class KWeatherAir365Sensor(Entity):
     @callback
     def point_in_time_listener(self, time_date):
         """Get the latest data and update state."""
-        self._update_internal_state(time_date)
+        self._update_internal_state()
         self.async_schedule_update_ha_state()
         async_track_point_in_utc_time(
             self.hass, self.point_in_time_listener, self.get_next_interval())
