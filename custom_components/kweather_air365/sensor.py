@@ -74,21 +74,6 @@ async def get_kweather_air365_result_impl_http_aio(station_no):
                 pass
             return result
 
-async def get_kweather_air365_result_impl(hass, station_no):
-    params = { 'station_no' : station_no }
-    #self._attributes = {"pm25": 10}
-    #x = requests.post(KWEATHER_API_URL, data = params)
-    x = await hass.async_add_executor_job(requests.post(KWEATHER_API_URL, data = params))
-    result = {}
-    if (x.status_code == 200):
-        try:
-            root = ET.fromstring(x.text)
-            for child in root:
-                result[child.tag] = child.text
-        except:
-            pass
-    return result
-
 aq_history = {}
 async def get_weather_air365_sensor_value(station_no, sensor):
     k = time.strftime('%y%m%d%H', time.localtime())
@@ -102,6 +87,13 @@ async def get_weather_air365_sensor_value(station_no, sensor):
     aq_history[k] = await get_kweather_air365_result_impl_http_aio(station_no)
     return aq_history[k][sensor]
 
+
+sensor_icons = {
+    'temp' : 'mdi:thermometer',
+    'humi' : 'mdi:water-percent',
+    'pm25' : 'mdi:alien-outline',
+    'pm10' : 'mdi:alien-outline',
+}
 
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     """Set up the Anniversary sensor."""
@@ -117,11 +109,6 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         interval = device_config.get(CONF_INTERVAL)
         sensor_types = device_config.get(CONF_SENSOR_TYPES)
 
-        #_LOGGER.info("type of sentence : {}".format(type(get_kweather_air365_result(hass, station_no)).__name__))
-        #result = await get_kweather_air365_result(hass, station_no).send(None)
-        #fut = get_kweather_air365_result(hass, station_no).send(None)
-        #fut = await hass.async_add_executor_job(get_kweather_air365_result_impl(hass, station_no))
-        #result = await hass.async_create_task(get_kweather_air365_result_impl(station_no))
         fut = await get_kweather_air365_result_impl_http_aio(station_no)
         _LOGGER.info("type of fut : {}".format(type(fut).__name__))
         result = fut
@@ -170,7 +157,9 @@ class KWeatherAir365Sensor(Entity):
 
     @property
     def icon(self):
-        return "ph:graph-thin"
+        if self._sensor_type in sensor_icons:
+            return sensor_icons[self._sensor_type]
+        return ""
 
     @property
     def extra_state_attributes(self):
