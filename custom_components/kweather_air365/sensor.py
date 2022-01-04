@@ -7,7 +7,8 @@ from datetime import timedelta, date, datetime
 import logging
 
 import aiohttp
-import asyncio
+import time
+import math
 
 import voluptuous as vol
 
@@ -24,7 +25,6 @@ import homeassistant.util.dt as dt_util
 from homeassistant.util.json import load_json
 from homeassistant.helpers.event import async_track_point_in_utc_time
 
-import requests
 import xml.etree.ElementTree as ET
 
 _LOGGER = logging.getLogger(__name__)
@@ -76,16 +76,22 @@ async def get_kweather_air365_result_impl_http_aio(station_no):
 
 aq_history = {}
 async def get_weather_air365_sensor_value(station_no, sensor):
-    k = time.strftime('%y%m%d%H', time.localtime())
+    newKeyStr = time.strftime('%y%m%d%H%M', time.localtime())
+    newKey = math.floor(int(newKeyStr) / 10)
     keys_to_remove = []
 
-    if k not in aq_history.keys():
-        keys_to_remove.append(k)
-    for k in keys_to_remove:
-        aq_history.pop(k)
+    if newKey not in aq_history.keys():
+        for eachKey in aq_history.keys():
+            if eachKey != newKey:
+                keys_to_remove.append(eachKey)
 
-    aq_history[k] = await get_kweather_air365_result_impl_http_aio(station_no)
-    return aq_history[k][sensor]
+        for eachKey in keys_to_remove:
+            aq_history.pop(eachKey)
+
+        aq_history[newKey] = await get_kweather_air365_result_impl_http_aio(station_no)
+        aq_history[newKey]['time'] = newKey
+
+    return aq_history[newKey][sensor]
 
 
 sensor_icons = {
@@ -95,13 +101,32 @@ sensor_icons = {
     'pm10' : 'mdi:alien-outline',
 }
 
+class DataStore:
+    def __init__(self, hass, sensors, interval):
+        self._hass = hass
+        self._sensors = sensors
+        self._interval = interval
+
+    def get_next_interval(self):
+        now = dt_util.utcnow()
+        interval = now + timedelta(seconds=self._interval);
+        return interval
+
+    @callback
+    async def point_in_time_listener(self, now):
+        """Get the latest data and update state."""
+        for sensor in self._sensors:
+            await sensor._update_internal_state()
+            sensor.async_schedule_update_ha_state(True)
+        async_track_point_in_utc_time(
+            self._hass, self.point_in_time_listener, self.get_next_interval())
+
+data_stores = []
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     """Set up the Anniversary sensor."""
     if hass.config.time_zone is None:
         _LOGGER.error("Timezone is not set in Home Assistant configuration")
         return False
-
-    sensors = []
 
     for device, device_config in config[CONF_SENSORS].items():
         location = device_config.get(CONF_SENSOR_LOCATION)
@@ -109,22 +134,24 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         interval = device_config.get(CONF_INTERVAL)
         sensor_types = device_config.get(CONF_SENSOR_TYPES)
 
-        fut = await get_kweather_air365_result_impl_http_aio(station_no)
-        _LOGGER.info("type of fut : {}".format(type(fut).__name__))
-        result = fut
+        result = await get_kweather_air365_result_impl_http_aio(station_no)
 
         # https://stackoverflow.com/questions/29867405/python-asyncio-return-vs-set-result
 
         _LOGGER.info("current values : {}".format(result))
 
+        sensors = []
         for sensor in SENSOR_TYPES:
             if sensor in sensor_types:
                 initial = result[sensor]
                 sensor = KWeatherAir365Sensor(hass, location, station_no, sensor, initial, interval)
                 sensors.append(sensor)
 
+        data_store = DataStore(hass, sensors, interval)
+        data_stores.append(data_store)
+
         async_track_point_in_utc_time(
-            hass, point_in_time_listener, get_next_interval(interval))
+            hass, data_store.point_in_time_listener, data_store.get_next_interval())
 
     async_add_entities(sensors, True)
 
@@ -138,14 +165,9 @@ class KWeatherAir365Sensor(Entity):
         self._sensor_type = sensor_type
         self._interval = interval
         self._extra_state_attributes = { }
-        #result = await get_kweather_air365_result(hass, station_no).send(None)
-        #self._attr_state = get_weather_air365_sensor_value(hass, station_no, sensor_type)
         self._attr_state = initial_value
-        _LOGGER.info('_attr_state in ctor : {}'.format(self._attr_state))
         self._attr_name = "{} {}".format(name, SENSOR_TYPES[sensor_type][1])
         self._attr_unit_of_measurement = SENSOR_TYPES[sensor_type][2]
-
-        #self._update_internal_state()
 
     @property
     def name(self):
@@ -165,37 +187,21 @@ class KWeatherAir365Sensor(Entity):
     def extra_state_attributes(self):
         return self._extra_state_attributes
 
+    #@property
+    #def should_poll(self):
+    #    _LOGGER.info("Returning false for should_poll")
+    #    return False
+
+    #How to update state
+    #https://developers.home-assistant.io/docs/core/entity/
     async def _update_internal_state(self):
-        self._state = get_weather_air365_sensor_value(self._hass, self._station_no, self._sensor_type)
+        try:
+            self._attr_state = await get_weather_air365_sensor_value(self._station_no, self._sensor_type)
+        except:
+            _LOGGER.info("Exception occured!!")
+        return self._attr_state
 
-        params = { 'station_no' : self._station_no }
-        #self._attributes = {"pm25": 10}
-        '''
-        x = requests.post(KWEATHER_API_URL, data = params)
-        if (x.status_code == 200):
-            try:
-                root = ET.fromstring(x.text)
-                for child in root:
-                    self._attribute[child.tag] = child.text
-            except:
-                pass
-        '''
-        #self._attributes = await hass.async_add_executor_job(get_kweather_air365_result(self._station_no))
-
-    '''
-    @callback
-    def point_in_time_listener(self, time_date):
-        """Get the latest data and update state."""
-        self._update_internal_state()
-        self.async_schedule_update_ha_state()
-        async_track_point_in_utc_time(
-            self.hass, self.point_in_time_listener, self.get_next_interval())
-    '''
-
-def get_next_interval(interval):
-    now = dt_util.utcnow()
-    return now + timedelta(seconds=interval)
-
+'''
 def point_in_time_listener(hass, sensors, interval):
     """Get the latest data and update state."""
     for sensor in sensors:
@@ -203,4 +209,5 @@ def point_in_time_listener(hass, sensors, interval):
         sensor.async_schedule_update_ha_state()
 
     async_track_point_in_utc_time(
-        hass, point_in_time_listener, get_next_interval(interval))
+        hass, point_in_time_listener(hass, sensors, interval), get_next_interval(interval))
+'''
