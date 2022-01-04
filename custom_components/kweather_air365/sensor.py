@@ -17,7 +17,7 @@ from homeassistant.components.sensor import ENTITY_ID_FORMAT, PLATFORM_SCHEMA
 from homeassistant.const import (
     CONF_SENSORS, CONF_NAME, CONF_TYPE,
     DEVICE_CLASS_TEMPERATURE, DEVICE_CLASS_HUMIDITY,
-    DEVICE_CLASS_PM10, DEVICE_CLASS_PM25,
+    DEVICE_CLASS_PM10, DEVICE_CLASS_PM25, DEVICE_CLASS_TIMESTAMP,
 )
 from homeassistant.helpers.entity import Entity, async_generate_entity_id
 import homeassistant.helpers.config_validation as cv
@@ -42,6 +42,7 @@ SENSOR_TYPES = {
     'pm10': [DEVICE_CLASS_PM10, 'PM10', 'μg/m³'],
     'temp': [DEVICE_CLASS_TEMPERATURE, 'Temperature', '℃'],
     'humi': [DEVICE_CLASS_HUMIDITY, 'Humidity', '%'],
+    'time' : [DEVICE_CLASS_TIMESTAMP, 'Last Updated Time', ''],
 }
 
 DEFAULT_SENSOR_TYPES = list(SENSOR_TYPES.keys())
@@ -72,6 +73,7 @@ async def get_kweather_air365_result_impl_http_aio(station_no):
                     result[child.tag] = child.text
             except:
                 pass
+            result['time'] = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
             return result
 
 aq_history = {}
@@ -89,7 +91,6 @@ async def get_weather_air365_sensor_value(station_no, sensor):
             aq_history.pop(eachKey)
 
         aq_history[newKey] = await get_kweather_air365_result_impl_http_aio(station_no)
-        aq_history[newKey]['time'] = newKey
 
     return aq_history[newKey][sensor]
 
@@ -99,6 +100,7 @@ sensor_icons = {
     'humi' : 'mdi:water-percent',
     'pm25' : 'mdi:alien-outline',
     'pm10' : 'mdi:alien-outline',
+    'time' : 'mdi:clock-check-outline',
 }
 
 class DataStore:
@@ -171,7 +173,10 @@ class KWeatherAir365Sensor(Entity):
 
     @property
     def name(self):
-        return "{} {}".format(self._name, self._sensor_type)
+        if self._sensor_type in SENSOR_TYPES:
+            return "{} {}".format(self._name, SENSOR_TYPES[self._sensor_type][2])
+        else:
+            return "{} {}".format(self._name, self._sensor_type)
 
     @property
     def state(self):
