@@ -24,6 +24,7 @@ import homeassistant.helpers.config_validation as cv
 import homeassistant.util.dt as dt_util
 from homeassistant.util.json import load_json
 from homeassistant.helpers.event import async_track_point_in_utc_time
+from homeassistant.components.sensor import SensorEntity
 
 import xml.etree.ElementTree as ET
 
@@ -131,6 +132,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         return False
 
     for device, device_config in config[CONF_SENSORS].items():
+        name = device_config.get(CONF_NAME)
         location = device_config.get(CONF_SENSOR_LOCATION)
         station_no = device_config.get(CONF_STATION_NO)
         interval = device_config.get(CONF_INTERVAL)
@@ -146,8 +148,8 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         for sensor in SENSOR_TYPES:
             if sensor in sensor_types:
                 initial = result[sensor]
-                sensor = KWeatherAir365Sensor(hass, location, station_no, sensor, initial, interval)
-                sensors.append(sensor)
+                s = KWeatherAir365Sensor(hass, name, station_no, sensor, initial, interval)
+                sensors.append(s)
 
         data_store = DataStore(hass, sensors, interval)
         data_stores.append(data_store)
@@ -158,7 +160,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     async_add_entities(sensors, True)
 
 
-class KWeatherAir365Sensor(Entity):
+class KWeatherAir365Sensor(SensorEntity):
     def __init__(self, hass, name, station_no, sensor_type, initial_value, interval):
         self.hass = hass
         self.entity_id = async_generate_entity_id(ENTITY_ID_FORMAT, "{}_{}".format(name, sensor_type), hass=hass)
@@ -170,6 +172,7 @@ class KWeatherAir365Sensor(Entity):
         self._attr_state = initial_value
         self._attr_name = "{} {}".format(name, SENSOR_TYPES[sensor_type][1])
         self._attr_unit_of_measurement = SENSOR_TYPES[sensor_type][2]
+        self._attr_unique_id = self.entity_id
 
     @property
     def name(self):
@@ -191,6 +194,15 @@ class KWeatherAir365Sensor(Entity):
     @property
     def extra_state_attributes(self):
         return self._extra_state_attributes
+
+    @property
+    def device_class(self):
+        return SENSOR_TYPES[self._sensor_type][0]
+        #return self._sensor_type
+
+    @property
+    def unit_of_measurement(self):
+        return SENSOR_TYPES[self._sensor_type][2]
 
     #@property
     #def should_poll(self):
