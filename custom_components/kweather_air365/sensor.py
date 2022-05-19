@@ -80,7 +80,7 @@ async def get_kweather_air365_result_impl_http_aio(station_no):
 aq_history = {}
 async def get_weather_air365_sensor_value(station_no, sensor):
     newKeyStr = time.strftime('%y%m%d%H%M', time.localtime())
-    newKey = math.floor(int(newKeyStr) / 10)
+    newKey = math.floor(int(newKeyStr))
     keys_to_remove = []
 
     if newKey not in aq_history.keys():
