@@ -159,6 +159,35 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
 
     async_add_entities(sensors, True)
 
+class KWeatherAir365FetchTime(Entity):
+    def __init__(self, hass, name, sensor_type):
+        self.hass = hass
+        self.entity_id = async_generate_entity_id(ENTITY_ID_FORMAT, "{}_{}".format(name, sensor_type), hass=hass)
+        self._name = name
+        self._attr_state = ''
+        self._attr_name = "{} {}".format(name, SENSOR_TYPES[sensor_type][1])
+        self._attr_unique_id = self.entity_id
+
+    @property
+    def name(self):
+        return "{} {}".format(self._name, self._sensor_type)
+
+    @property
+    def state(self):
+        return self._attr_state
+
+    @property
+    def icon(self):
+        if self._sensor_type in sensor_icons:
+            return sensor_icons[self._sensor_type]
+        return ""
+
+    async def _update_internal_state(self):
+        try:
+            self._attr_state = await get_weather_air365_sensor_value(self._station_no, self._sensor_type)
+        except:
+            _LOGGER.info("Exception occured!!")
+        return self._attr_state
 
 class KWeatherAir365Sensor(SensorEntity):
     def __init__(self, hass, name, station_no, sensor_type, initial_value, interval):
