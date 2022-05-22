@@ -74,7 +74,9 @@ async def get_kweather_air365_result_impl_http_aio(station_no):
                     result[child.tag] = child.text
             except:
                 pass
-            result['time'] = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+            #result['time'] = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+            now = datetime.now()
+            result['time'] = now.astimezone().replace(microsecond=0).isoformat()
             return result
 
 aq_history = {}
